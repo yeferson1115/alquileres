@@ -1,0 +1,638 @@
+<x-public-layout>
+    <div class="container py-4">
+        <div class="card">
+            <div class="card-header credit-form-header text-white">
+                <h4 class="mb-0">Solicitud de crédito + autorización de descuento</h4>
+            </div>
+            <div class="card-body">
+                @if (session('status'))
+                    <div class="alert alert-success">{{ session('status') }}</div>
+                @endif
+
+
+                @if (session('phone_verification_code_preview'))
+                    <div class="alert alert-warning" style="display:none;">
+                        <strong>Modo pruebas:</strong> código temporal para validar celular:
+                        <span class="badge bg-dark">{{ session('phone_verification_code_preview') }}</span>
+                    </div>
+                @endif
+
+                @if ($errors->any())
+                    <div class="alert alert-danger shadow-sm rounded-3 border-0">
+                        <div class="fw-semibold mb-2">Por favor corrige los siguientes campos:</div>
+                        <ul class="mb-0">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                @if (session('resume_url'))
+                    <div class="alert alert-info">
+                        <div><strong>Enlace para retomar:</strong></div>
+                        <div><a href="{{ session('resume_url') }}">{{ session('resume_url') }}</a></div>
+                        <small>Guárdalo para continuar luego sin perder tu progreso.</small>
+                    </div>
+                @endif
+
+                <div id="autosave-status" class="small text-muted mb-3"></div>
+
+                <div class="card border mb-4">
+                    <div class="card-body">
+                        <h5 class="mb-3">¿Ya habías iniciado una solicitud?</h5>
+                        <form action="{{ route('credit-applications.resume') }}" method="POST" class="row g-3">
+                            @csrf
+                            <div class="col-md-4">
+                                <label class="form-label">Número de documento</label>
+                                <input class="form-control" name="document_number" value="{{ old('document_number') }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Celular principal</label>
+                                <input class="form-control" name="phone_primary" value="{{ old('phone_primary') }}" required>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="submit" class="btn btn-outline-brand w-100">Retomar solicitud</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <form action="{{ route('credit-applications.store') }}" method="POST" enctype="multipart/form-data" id="credit-form">
+                    @csrf
+                    <input type="hidden" name="token" value="{{ old('token', $token) }}">
+                    <input type="hidden" name="signature_data" id="signature_data">
+                    <input type="hidden" name="remove_signature" id="remove_signature" value="0">
+                    <input type="hidden" name="terms_accepted" id="terms_accepted" value="{{ old('terms_accepted', $application?->terms_accepted_at ? 1 : 0) }}">
+
+                    <h5>Datos personales</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4"><label class="form-label">Fecha solicitud</label><input type="date" class="form-control" name="request_date" value="{{ $application?->request_date?->format('Y-m-d') ?? $todayDate }}" readonly></div>
+                        <div class="col-md-8"><label class="form-label">Nombres y apellidos *</label><input class="form-control" id="full_name" name="full_name" value="{{ old('full_name', $application?->full_name) }}"></div>
+                        <div class="col-md-3"><label class="form-label">Tipo documento</label><select class="form-control" name="document_type">
+                                <option value="">Selecciona</option>
+                                @foreach ($documentTypes as $key => $label)
+                                    <option value="{{ $key }}" @selected(old('document_type', $application?->document_type) === $key)>{{ $label }}</option>
+                                @endforeach
+                            </select></div>
+                        <div class="col-md-3"><label class="form-label">Número documento *</label><input class="form-control" id="document_number" name="document_number" value="{{ old('document_number', $application?->document_number) }}"></div>
+                        <div class="col-md-3"><label class="form-label">Celular 1 *</label><input class="form-control" name="phone_primary" value="{{ old('phone_primary', $application?->phone_primary) }}"></div>
+                        <div class="col-md-3"><label class="form-label">Celular 2</label><input class="form-control" name="phone_secondary" value="{{ old('phone_secondary', $application?->phone_secondary) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Correo *</label><input type="email" class="form-control" name="email" value="{{ old('email', $application?->email) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Dirección residencia *</label><input class="form-control" name="residential_address" value="{{ old('residential_address', $application?->residential_address) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Barrio</label><input class="form-control" name="neighborhood" value="{{ old('neighborhood', $application?->neighborhood) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Ciudad *</label><input class="form-control" name="city" value="{{ old('city', $application?->city) }}"></div>
+                    </div>
+
+                    <h5 class="mt-4">Contactos de referencia</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Nombre referencia 1 *</label><input class="form-control" name="reference_contact_1_name" value="{{ old('reference_contact_1_name', $application?->reference_contact_1_name) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Teléfono referencia 1 *</label><input class="form-control" name="reference_contact_1_phone" value="{{ old('reference_contact_1_phone', $application?->reference_contact_1_phone) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Nombre referencia 2 *</label><input class="form-control" name="reference_contact_2_name" value="{{ old('reference_contact_2_name', $application?->reference_contact_2_name) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Teléfono referencia 2 *</label><input class="form-control" name="reference_contact_2_phone" value="{{ old('reference_contact_2_phone', $application?->reference_contact_2_phone) }}"></div>
+                    </div>
+
+                    <div class="alert {{ $application?->phone_verified_at ? 'alert-success' : 'alert-warning' }} mt-3 mb-0">
+                        @if ($application?->phone_verified_at)
+                            ✅ Celular validado: {{ $application->phone_primary }}.
+                        @else
+                            ⚠️ Antes de enviar la solicitud debes validar el celular principal por SMS.
+                        @endif
+                    </div>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label class="form-label">Código de verificación</label>
+                            <input class="form-control" name="verification_code" maxlength="6" placeholder="123456">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end gap-2">
+                            <button class="btn btn-outline-primary" type="submit" formaction="{{ route('credit-applications.send-phone-code') }}" formmethod="POST" name="action" value="send_code">Enviar código SMS</button>
+                            <button class="btn btn-success" type="submit" formaction="{{ route('credit-applications.verify-phone-code') }}" formmethod="POST" name="action" value="verify_code">Validar celular</button>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5>Datos laborales y crédito</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Empresa donde labora *</label>
+                            <select class="form-control" id="company_id" name="company_id">
+                                <option value="">Selecciona una empresa</option>
+                                @foreach ($companies as $company)
+                                    <option value="{{ $company->id }}" data-company-name="{{ $company->name }}" data-company-nit="{{ $company->nit }}" @selected((string) old('company_id', $application?->company_id) === (string) $company->id)>
+                                        {{ $company->name }} - NIT {{ $company->nit }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Comercial que te atendió *</label>
+                            <select class="form-control" name="commercial_user_id">
+                                <option value="">Selecciona un comercial</option>
+                                @foreach ($commercialUsers as $commercialUser)
+                                    <option value="{{ $commercialUser->id }}" @selected((string) old('commercial_user_id', $application?->commercial_user_id) === (string) $commercialUser->id)>
+                                        {{ trim($commercialUser->name . ' ' . $commercialUser->last_name) }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6"><label class="form-label">Sede</label><input class="form-control" name="work_site" value="{{ old('work_site', $application?->work_site) }}"></div>
+                        <div class="col-md-4"><label class="form-label">Tipo contrato</label><select class="form-control" name="contract_type">
+                                <option value="">Selecciona</option>
+                                @foreach ($contractTypes as $key => $label)
+                                    <option value="{{ $key }}" @selected(old('contract_type', $application?->contract_type) === $key)>{{ $label }}</option>
+                                @endforeach
+                            </select></div>
+                        <div class="col-md-4"><label class="form-label">Ingresos mensuales</label><input type="number" step="0.01" class="form-control" name="monthly_income" value="{{ old('monthly_income', $application?->monthly_income) }}"></div>
+                        <div class="col-md-4"><label class="form-label">Fecha ingreso</label><input type="date" class="form-control" name="hire_date" value="{{ old('hire_date', optional($application?->hire_date)->format('Y-m-d')) }}"></div>
+                        <div class="col-md-12"><label class="form-label">Productos solicitados</label><textarea class="form-control" name="requested_products" rows="2">{{ old('requested_products', $application?->requested_products) }}</textarea></div>
+                        <div class="col-md-4"><label class="form-label">Valor total</label><input type="number" step="0.01" class="form-control" name="net_value_without_interest" value="{{ old('net_value_without_interest', $application?->net_value_without_interest) }}"></div>
+                        <div class="col-md-4"><label class="form-label">Número de cuotas</label><input type="number" class="form-control" name="installments_count" value="{{ old('installments_count', $application?->installments_count) }}"></div>
+                        <div class="col-md-4"><label class="form-label">Frecuencia</label>
+                            <select class="form-control" name="payment_frequency">
+                                <option value="">Selecciona</option>
+                                @foreach (['decadal' => 'Decadal', 'biweekly' => 'Quincenal', 'monthly' => 'Mensual'] as $key => $label)
+                                    <option value="{{ $key }}" @selected(old('payment_frequency', $application?->payment_frequency) === $key)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4"><label class="form-label">Valor cuota</label><input type="number" step="0.01" class="form-control" name="installment_value" value="{{ old('installment_value', $application?->installment_value) }}" readonly></div>
+                        <div class="col-md-4"><label class="form-label">Fecha primera cuota</label><input type="date" class="form-control" name="first_installment_date" value="{{ old('first_installment_date', optional($application?->first_installment_date)->format('Y-m-d')) }}"></div>
+                        <div class="col-md-8"><label class="form-label">Observaciones</label><input class="form-control" name="observations" value="{{ old('observations', $application?->observations) }}"></div>
+                    </div>
+
+                    <hr>
+                    <h5>Autorización de descuento</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Empleador</label><input class="form-control" id="employer_name" name="employer_name" value="{{ old('employer_name', $application?->employer_name) }}" readonly></div>
+                        <div class="col-md-6"><label class="form-label">NIT</label><input class="form-control" id="employer_nit" name="employer_nit" value="{{ old('employer_nit', $application?->employer_nit) }}" readonly></div>
+                        <div class="col-md-4"><label class="form-label">Nombre empleado</label><input class="form-control" id="employee_name" name="employee_name" value="{{ old('employee_name', $application?->employee_name) }}" readonly></div>
+                        <div class="col-md-4"><label class="form-label">Documento</label><input class="form-control" id="employee_document" name="employee_document" value="{{ old('employee_document', $application?->employee_document) }}" readonly></div>
+                        <div class="col-md-4"><label class="form-label">Cargo</label><input class="form-control" name="employee_position" value="{{ old('employee_position', $application?->employee_position) }}"></div>
+                        <div class="col-md-6"><label class="form-label">Descuento por</label><input class="form-control" name="discount_concept" value="{{ old('discount_concept', $application?->discount_concept) }}" readonly></div>
+                        <div class="col-md-3"><label class="form-label">Valor total</label><input type="number" step="0.01" class="form-control" name="discount_total_value" value="{{ old('discount_total_value', $application?->discount_total_value) }}" readonly></div>
+                        <div class="col-md-3"><label class="form-label">Fecha</label><input type="date" class="form-control" name="discount_authorization_date" value="{{ old('discount_authorization_date', optional($application?->discount_authorization_date)->format('Y-m-d')) }}"></div>
+                    </div>
+
+                    <hr>
+                    <h5>Adjuntos obligatorios</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Cédula frente</label>
+                            <input type="file" class="form-control" name="id_front">
+                            @if ($application?->id_front_path)
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="remove_id_front" value="1" id="remove_id_front">
+                                    <label class="form-check-label" for="remove_id_front">Eliminar archivo actual</label>
+                                </div>
+                                <a href="{{ asset($application->id_front_path) }}" target="_blank" class="small">Ver archivo guardado</a>
+                            @endif
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cédula reverso</label>
+                            <input type="file" class="form-control" name="id_back">
+                            @if ($application?->id_back_path)
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="remove_id_back" value="1" id="remove_id_back">
+                                    <label class="form-check-label" for="remove_id_back">Eliminar archivo actual</label>
+                                </div>
+                                <a href="{{ asset($application->id_back_path) }}" target="_blank" class="small">Ver archivo guardado</a>
+                            @endif
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Selfie con cédula</label>
+                            <input type="file" class="form-control" name="selfie_with_id">
+                            @if ($application?->selfie_with_id_path)
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="remove_selfie_with_id" value="1" id="remove_selfie_with_id">
+                                    <label class="form-check-label" for="remove_selfie_with_id">Eliminar archivo actual</label>
+                                </div>
+                                <a href="{{ asset($application->selfie_with_id_path) }}" target="_blank" class="small">Ver archivo guardado</a>
+                            @endif
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5>Firma en pantalla (obligatoria al enviar)</h5>
+                    <div class="border rounded p-2 bg-light">
+                        <canvas id="signature-pad" width="800" height="220" style="width:100%;max-width:100%;border:1px dashed #6c757d;background:#fff"></canvas>
+                        <div class="mt-2 d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clear-signature">Limpiar firma</button>
+                        </div>
+                    </div>
+
+                    @if ($application?->signature_path)
+                        <div class="mt-2">
+                            <a href="{{ asset($application->signature_path) }}" target="_blank" class="small d-inline-block">Ver firma guardada</a>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="1" id="remove_signature_checkbox">
+                                <label class="form-check-label" for="remove_signature_checkbox">Eliminar firma guardada</label>
+                            </div>
+                        </div>
+                    @endif
+
+                    <hr>
+                    <h5>Términos y condiciones</h5>
+                    <div class="alert {{ $application?->terms_accepted_at ? 'alert-success' : 'alert-warning' }} mb-0" id="terms-status-alert">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                            <div id="terms-status-text">
+                                @if ($application?->terms_accepted_at)
+                                    ✅ Términos aceptados el {{ $application->terms_accepted_at->format('d/m/Y H:i') }}.
+                                @else
+                                    ⚠️ Debes leer y aceptar los términos y condiciones para enviar la solicitud.
+                                @endif
+                            </div>
+                            <button type="button" class="btn btn-outline-dark btn-sm" id="open-terms-modal-btn" data-bs-toggle="modal" data-bs-target="#termsModal">
+                                Ver y aceptar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 d-flex gap-2">
+                        <button class="btn btn-outline-brand" type="submit" name="action" value="draft">Guardar borrador</button>
+                        <button class="btn btn-brand" type="submit" name="action" value="submit">Enviar solicitud</button>
+                        @if ($application?->pdf_path)
+                            <a class="btn btn-success" href="{{ route('credit-applications.pdf', $application) }}">Descargar PDF solicitud</a>
+                            @if ($application?->authorization_pdf_path)
+                                <a class="btn btn-outline-success" href="{{ route('credit-applications.authorization-pdf', $application) }}">Descargar PDF autorización</a>
+                            @endif
+                        @endif
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="termsModalLabel">Términos y condiciones de crédito</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="ratio ratio-16x9 border rounded">
+                        <iframe
+                            src="{{ asset('docs/terminos-condiciones-credito.pdf') }}"
+                            title="Términos y condiciones"
+                            loading="lazy"
+                        ></iframe>
+                    </div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="terms_accept_checkbox" @checked(old('terms_accepted', $application?->terms_accepted_at ? 1 : 0))>
+                        <label class="form-check-label" for="terms_accept_checkbox">
+                            Confirmo que leí el PDF y acepto los términos y condiciones.
+                        </label>
+                    </div>
+                    <small class="text-muted d-block mt-2">Sin esta aceptación no se puede enviar la solicitud.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-brand" id="confirm-terms-btn">Guardar aceptación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const canvas = document.getElementById('signature-pad');
+            const hiddenInput = document.getElementById('signature_data');
+            const removeSignatureInput = document.getElementById('remove_signature');
+            const removeSignatureCheckbox = document.getElementById('remove_signature_checkbox');
+            const termsAcceptedInput = document.getElementById('terms_accepted');
+            const termsModalElement = document.getElementById('termsModal');
+            const termsAcceptCheckbox = document.getElementById('terms_accept_checkbox');
+            const confirmTermsButton = document.getElementById('confirm-terms-btn');
+            const openTermsModalButton = document.getElementById('open-terms-modal-btn');
+            const termsStatusAlert = document.getElementById('terms-status-alert');
+            const termsStatusText = document.getElementById('terms-status-text');
+            const hasBootstrapModal = typeof window.bootstrap !== 'undefined' && typeof window.bootstrap.Modal !== 'undefined';
+            const hasJQueryModal = typeof window.$ !== 'undefined' && typeof window.$.fn?.modal === 'function';
+            const termsModal = hasBootstrapModal && termsModalElement ? new window.bootstrap.Modal(termsModalElement) : null;
+            const clearBtn = document.getElementById('clear-signature');
+            const form = document.getElementById('credit-form');
+            const formActionUrl = form?.getAttribute('action') || window.location.href;
+            const autosaveStatus = document.getElementById('autosave-status');
+            const fullNameInput = document.getElementById('full_name');
+            const documentNumberInput = document.getElementById('document_number');
+            const companySelect = document.getElementById('company_id');
+            const employerNameInput = document.getElementById('employer_name');
+            const employerNitInput = document.getElementById('employer_nit');
+            const employeeNameInput = document.getElementById('employee_name');
+            const employeeDocumentInput = document.getElementById('employee_document');
+            const requestedProductsInput = form.querySelector('[name="requested_products"]');
+            const discountConceptInput = form.querySelector('[name="discount_concept"]');
+            const netValueInput = form.querySelector('[name="net_value_without_interest"]');
+            const installmentValueInput = form.querySelector('[name="installment_value"]');
+            const installmentsCountInput = form.querySelector('[name="installments_count"]');
+            const paymentFrequencyInput = form.querySelector('[name="payment_frequency"]');
+            const totalValueInput = form.querySelector('[name="discount_total_value"]');
+            const submitRequiredFieldNames = [
+                'full_name',
+                'document_number',
+                'phone_primary',
+                'email',
+                'residential_address',
+                'city',
+                'company_id',
+                'commercial_user_id',
+            ];
+            const ctx = canvas.getContext('2d');
+            let drawing = false;
+            let autosaveTimer;
+            let hasSignatureStroke = false;
+
+            const syncDiscountAuthorizationFields = () => {
+                const selectedOption = companySelect?.options?.[companySelect.selectedIndex];
+                const companyName = selectedOption?.dataset?.companyName || '';
+                const companyNit = selectedOption?.dataset?.companyNit || '';
+
+                if (employerNameInput) {
+                    employerNameInput.value = companyName;
+                }
+
+                if (employerNitInput) {
+                    employerNitInput.value = companyNit;
+                }
+
+                if (employeeNameInput) {
+                    employeeNameInput.value = fullNameInput?.value || '';
+                }
+
+                if (employeeDocumentInput) {
+                    employeeDocumentInput.value = documentNumberInput?.value || '';
+                }
+            };
+
+            const updateTermsStatus = () => {
+                const accepted = termsAcceptedInput?.value === '1';
+                if (!termsStatusAlert || !termsStatusText) {
+                    return;
+                }
+
+                termsStatusAlert.classList.remove('alert-success', 'alert-warning');
+                termsStatusAlert.classList.add(accepted ? 'alert-success' : 'alert-warning');
+                termsStatusText.textContent = accepted
+                    ? '✅ Términos aceptados correctamente.'
+                    : '⚠️ Debes leer y aceptar los términos y condiciones para enviar la solicitud.';
+            };
+
+            const showPrettyAlert = (message, type = 'danger') => {
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} shadow-sm rounded-3 border-0`;
+                wrapper.textContent = message;
+                form.prepend(wrapper);
+                setTimeout(() => wrapper.remove(), 6000);
+            };
+
+            const calculateCreditValues = () => {
+                const vp = parseFloat(netValueInput?.value || '0');
+                const n = parseInt(installmentsCountInput?.value || '0', 10);
+                const i = 0.022;
+
+                if (!Number.isFinite(vp) || !Number.isFinite(n) || vp <= 0 || n <= 0) {
+                    if (totalValueInput) totalValueInput.value = '';
+                    if (installmentValueInput) installmentValueInput.value = '';
+                    return;
+                }
+
+                const frequency = paymentFrequencyInput?.value;
+                const monthsPerInstallment = frequency === 'biweekly' ? 0.5 : (frequency === 'decadal' ? (1 / 3) : 1);
+                const totalMonths = n * monthsPerInstallment;
+
+                const vf = vp * Math.pow(1 + i, totalMonths);
+                const cuota = vf / n;
+
+                if (totalValueInput) totalValueInput.value = vf.toFixed(2);
+                if (installmentValueInput) installmentValueInput.value = cuota.toFixed(2);
+            };
+
+            const syncDiscountConcept = () => {
+                if (discountConceptInput) {
+                    discountConceptInput.value = requestedProductsInput?.value || '';
+                }
+            };
+
+            const openTermsModal = () => {
+                if (termsModal) {
+                    termsModal.show();
+                    return;
+                }
+
+                if (hasJQueryModal) {
+                    window.$(termsModalElement).modal('show');
+                    return;
+                }
+
+                termsModalElement?.classList.add('show');
+                termsModalElement?.style.setProperty('display', 'block');
+                termsModalElement?.setAttribute('aria-modal', 'true');
+                termsModalElement?.removeAttribute('aria-hidden');
+            };
+
+            const closeTermsModal = () => {
+                if (termsModal) {
+                    termsModal.hide();
+                    return;
+                }
+
+                if (hasJQueryModal) {
+                    window.$(termsModalElement).modal('hide');
+                    return;
+                }
+
+                termsModalElement?.classList.remove('show');
+                termsModalElement?.style.setProperty('display', 'none');
+                termsModalElement?.setAttribute('aria-hidden', 'true');
+                termsModalElement?.removeAttribute('aria-modal');
+            };
+
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#111827';
+
+            const position = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: (clientX - rect.left) * (canvas.width / rect.width),
+                    y: (clientY - rect.top) * (canvas.height / rect.height),
+                };
+            };
+
+            const start = (e) => {
+                drawing = true;
+                const p = position(e);
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+                hasSignatureStroke = true;
+                e.preventDefault();
+            };
+
+            const move = (e) => {
+                if (!drawing) {
+                    return;
+                }
+                const p = position(e);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+                hasSignatureStroke = true;
+                e.preventDefault();
+            };
+
+            const end = () => {
+                drawing = false;
+                if (hasSignatureStroke) {
+                    hiddenInput.value = canvas.toDataURL('image/png');
+                }
+                if (removeSignatureInput) {
+                    removeSignatureInput.value = '0';
+                }
+                if (removeSignatureCheckbox) {
+                    removeSignatureCheckbox.checked = false;
+                }
+                scheduleAutosave();
+            };
+
+            ['mousedown', 'touchstart', 'pointerdown'].forEach(evt => canvas.addEventListener(evt, start, { passive: false }));
+            ['mousemove', 'touchmove', 'pointermove'].forEach(evt => canvas.addEventListener(evt, move, { passive: false }));
+            ['mouseup', 'mouseleave', 'touchend', 'pointerup', 'pointerleave'].forEach(evt => canvas.addEventListener(evt, end));
+
+            clearBtn.addEventListener('click', () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                hiddenInput.value = '';
+                hasSignatureStroke = false;
+                if (removeSignatureInput) {
+                    removeSignatureInput.value = '1';
+                }
+            });
+
+            confirmTermsButton?.addEventListener('click', () => {
+                const accepted = termsAcceptCheckbox?.checked;
+                termsAcceptedInput.value = accepted ? '1' : '0';
+                updateTermsStatus();
+                scheduleAutosave();
+                closeTermsModal();
+            });
+
+            openTermsModalButton?.addEventListener('click', (event) => {
+                if (!hasBootstrapModal && !hasJQueryModal) {
+                    event.preventDefault();
+                    openTermsModal();
+                }
+            });
+
+            termsModalElement?.querySelectorAll('[data-bs-dismiss="modal"]').forEach((button) => {
+                button.addEventListener('click', (event) => {
+                    if (!hasBootstrapModal && !hasJQueryModal) {
+                        event.preventDefault();
+                        closeTermsModal();
+                    }
+                });
+            });
+
+            const autosave = async () => {
+                if (!documentNumberInput?.value?.trim()) {
+                    autosaveStatus.textContent = 'El autoguardado se activará cuando ingreses el número de documento.';
+                    return;
+                }
+
+                const formData = new FormData(form);
+                formData.set('action', 'draft');
+                formData.delete('verification_code');
+
+                autosaveStatus.textContent = 'Guardando borrador...';
+
+                try {
+                    const response = await fetch(formActionUrl, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'text/html',
+                        },
+                    });
+
+                    autosaveStatus.textContent = response.ok
+                        ? 'Borrador guardado automáticamente.'
+                        : 'No se pudo guardar el borrador automático.';
+                } catch (error) {
+                    autosaveStatus.textContent = 'No se pudo guardar el borrador automático.';
+                }
+            };
+
+            const scheduleAutosave = () => {
+                clearTimeout(autosaveTimer);
+                autosaveTimer = setTimeout(autosave, 1200);
+            };
+
+            setInterval(autosave, 30000);
+
+            removeSignatureCheckbox?.addEventListener('change', () => {
+                if (removeSignatureInput) {
+                    removeSignatureInput.value = removeSignatureCheckbox.checked ? '1' : '0';
+                }
+                scheduleAutosave();
+            });
+
+            companySelect?.addEventListener('change', () => {
+                syncDiscountAuthorizationFields();
+                scheduleAutosave();
+            });
+            fullNameInput?.addEventListener('input', syncDiscountAuthorizationFields);
+            documentNumberInput?.addEventListener('input', syncDiscountAuthorizationFields);
+            requestedProductsInput?.addEventListener('input', () => {
+                syncDiscountConcept();
+                scheduleAutosave();
+            });
+            [netValueInput, installmentsCountInput, paymentFrequencyInput].forEach((field) => {
+                field?.addEventListener('input', calculateCreditValues);
+                field?.addEventListener('change', calculateCreditValues);
+            });
+
+            syncDiscountAuthorizationFields();
+            syncDiscountConcept();
+            calculateCreditValues();
+
+            form.querySelectorAll('input, select, textarea').forEach((field) => {
+                if (field.name === 'verification_code') {
+                    return;
+                }
+
+                field.addEventListener('input', scheduleAutosave);
+                field.addEventListener('change', scheduleAutosave);
+            });
+
+            form.addEventListener('submit', (event) => {
+                const submitAction = event.submitter?.value;
+                const isSubmitAction = submitAction === 'submit';
+
+                submitRequiredFieldNames.forEach((fieldName) => {
+                    const field = form.querySelector(`[name="${fieldName}"]`);
+                    if (field) {
+                        field.required = isSubmitAction;
+                    }
+                });
+
+                if (submitAction === 'submit' && termsAcceptedInput?.value !== '1') {
+                    event.preventDefault();
+                    termsAcceptCheckbox.checked = false;
+                    openTermsModal();
+                    showPrettyAlert('Debes aceptar los términos y condiciones para enviar la solicitud.', 'warning');
+                    return;
+                }
+
+                if (hasSignatureStroke) {
+                    hiddenInput.value = canvas.toDataURL('image/png');
+                }
+                if (removeSignatureInput && removeSignatureCheckbox?.checked) {
+                    removeSignatureInput.value = '1';
+                }
+            });
+
+            updateTermsStatus();
+        })();
+    </script>
+</x-public-layout>
