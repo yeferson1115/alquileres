@@ -1,72 +1,10 @@
-@extends('layouts.admin')
-
+@extends('layouts.app')
 @section('content')
-    <h2 class="text-3xl font-bold mb-6 text-gray-800">Panel de Control</h2>
-    
-    <!-- Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
-            <p class="text-sm text-gray-500 uppercase font-bold">Disponibles</p>
-            <p class="text-3xl font-bold">{{ $stats['disponibles'] }}</p>
-        </div>
-        <div class="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
-            <p class="text-sm text-gray-500 uppercase font-bold">En Alquiler</p>
-            <p class="text-3xl font-bold">{{ $stats['alquilados'] }}</p>
-        </div>
-        <div class="bg-white p-6 rounded-lg shadow border-l-4 border-yellow-500">
-            <p class="text-sm text-gray-500 uppercase font-bold">En Mantenimiento</p>
-            <p class="text-3xl font-bold">{{ $stats['mantenimiento'] }}</p>
-        </div>
-    </div>
-
-    <!-- Alertas de Devolución (HU-03) -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="bg-red-500 p-4 text-white font-bold">
-            ⚠️ Devoluciones Pendientes para Mañana
-        </div>
-        <table class="w-full text-left">
-            <thead class="bg-gray-50 border-b">
-                <tr>
-                    <th class="p-4">Cliente</th>
-                    <th class="p-4">Teléfono</th>
-                    <th class="p-4">Vestido</th>
-                    <th class="p-4">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($alertas as $alerta)
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="p-4">{{ $alerta->cliente->nombre }}</td>
-                        <td class="p-4">{{ $alerta->cliente->telefono }}</td>
-                        <td class="p-4">{{ $alerta->vestido->codigo }} - {{ $alerta->vestido->descripcion }}</td>
-                        <td class="p-4">
-                            <button onclick="marcarDevuelto('{{ $alerta->id }}')" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
-                                Registrar Devolución
-                            </button>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="4" class="p-4 text-center text-gray-500">No hay alertas para mañana.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+<div class="content-header row mt-5"><div class="content-header-left col-md-8 col-12 mb-2"><h2 class="content-header-title float-start mb-0">Alertas y Alquileres</h2></div><div class="content-header-right text-md-end col-md-4 col-12"><a href="{{ route('alquileres.reservar') }}" class="btn btn-primary waves-effect"><i class="fa-solid fa-calendar-plus"></i> Nueva Reserva</a></div></div>
+<div class="content-body"><div class="row"><div class="col-md-4"><div class="card"><div class="card-body"><p class="text-muted mb-1">Disponibles en tienda</p><h2 class="mb-0 text-success">{{ $stats['disponibles'] }}</h2></div></div></div><div class="col-md-4"><div class="card"><div class="card-body"><p class="text-muted mb-1">Fuera de tienda</p><h2 class="mb-0 text-primary">{{ $stats['alquilados'] }}</h2></div></div></div><div class="col-md-4"><div class="card"><div class="card-body"><p class="text-muted mb-1">En mantenimiento</p><h2 class="mb-0 text-warning">{{ $stats['mantenimiento'] }}</h2></div></div></div></div>
+<div class="card"><div class="card-header border-bottom"><h4 class="card-title text-danger"><i class="fa-solid fa-bell"></i> Clientes a llamar</h4><small class="text-muted">Vestidos cuya devolución vence mañana.</small></div><div class="card-body"><div class="table-responsive"><table class="table"><thead class="table-light"><tr><th>Cliente</th><th>Teléfono</th><th>Vestido</th><th>Acción</th></tr></thead><tbody>@forelse($alertas as $alerta)<tr><td>{{ $alerta->cliente->nombre }}</td><td>{{ $alerta->cliente->telefono }}</td><td>{{ $alerta->vestido->codigo }} - {{ $alerta->vestido->descripcion }}</td><td><button class="btn btn-success btn-sm" onclick="recibir({{ $alerta->id }})">Registrar devolución</button></td></tr>@empty<tr><td colspan="4" class="text-center text-muted py-3">No hay alertas de devolución para mañana.</td></tr>@endforelse</tbody></table></div></div></div>
+<div class="card"><div class="card-header border-bottom"><h4 class="card-title">Reservas y vestidos fuera de tienda</h4></div><div class="card-body"><div class="table-responsive"><table class="table"><thead class="table-light"><tr><th>Vestido / Cliente</th><th>Estado</th><th>Saldo</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>@forelse($alquileresActivos as $alquiler)<tr><td><strong>{{ $alquiler->vestido->codigo }}</strong><br><small>{{ $alquiler->cliente->nombre }}</small></td><td><span class="badge bg-{{ $alquiler->estado_alquiler === 'RETRASADO' ? 'danger' : ($alquiler->estado_alquiler === 'RESERVADO' ? 'warning' : 'primary') }}">{{ str_replace('_', ' ', $alquiler->estado_alquiler) }}</span></td><td>${{ number_format($alquiler->saldo_pendiente, 0, ',', '.') }}</td><td>{{ ($alquiler->fecha_devolucion_limite ?? $alquiler->fecha_entrega_est)->format('d/m/Y') }}</td><td>@if($alquiler->estado_alquiler === 'RESERVADO')<button class="btn btn-primary btn-sm" onclick="despachar({{ $alquiler->id }}, '{{ $alquiler->saldo_pendiente }}')">Despachar</button>@else<button class="btn btn-success btn-sm" onclick="recibir({{ $alquiler->id }})">Recibir</button>@endif</td></tr>@empty<tr><td colspan="5" class="text-center text-muted py-3">No hay alquileres activos.</td></tr>@endforelse</tbody></table></div></div></div></div>
 @endsection
-
-@section('scripts')
-<script>
-    async function marcarDevuelto(id) {
-        if(confirm('¿Confirmar la recepción del vestido? Pasará a estado de Lavandería.')) {
-            try {
-                const res = await axios.post(`{{ url('admin/alquileres') }}/${id}/devolver`);
-                alert(res.data.message);
-                location.reload();
-            } catch (e) {
-                alert('Error: ' + e.response.data.error);
-            }
-        }
-    }
-</script>
-@endsection
+@push('scripts')
+<script>function recibir(id){Swal.fire({title:'¿Registrar devolución?',text:'El vestido pasará a lavandería.',icon:'question',showCancelButton:true,confirmButtonText:'Sí, recibir'}).then(r=>{if(r.isConfirmed) $.post(`{{ url('admin/alquileres') }}/${id}/devolver`, {_token:'{{ csrf_token() }}'}).done(()=>location.reload()).fail(x=>_alertGeneric('error','Error',x.responseJSON?.error || 'No fue posible registrar la devolución.'));});} function despachar(id,saldo){let pago=prompt('Saldo pendiente: $'+Number(saldo).toLocaleString('es-CO'),saldo);if(pago===null)return;let dias=prompt('Días para devolución:','3');if(dias===null)return;$.post(`{{ url('admin/alquileres') }}/${id}/despachar`,{_token:'{{ csrf_token() }}',pago_final:pago,dias_prestamo:dias,metodo_pago:'EFECTIVO'}).done(()=>location.reload()).fail(x=>_alertGeneric('error','Error',x.responseJSON?.error || 'No fue posible despachar.'));}</script>
+@endpush

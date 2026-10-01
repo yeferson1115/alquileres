@@ -9,8 +9,8 @@ use App\Models\Cliente;
 use App\Models\Alquiler;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
-use Illuminate\Support\Facades\DB;
 
 class AlquilerController extends Controller
 {
@@ -33,7 +33,7 @@ class AlquilerController extends Controller
         return view('admin.clientes.create');
     }
 
-    public function storeCliente(Request $request): JsonResponse
+    public function storeCliente(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
@@ -41,8 +41,22 @@ class AlquilerController extends Controller
             'email' => 'nullable|email|max:255',
         ]);
 
-        $cliente = Cliente::create($validated);
-        return response()->json(['message' => 'Cliente creado exitosamente', 'data' => $cliente]);
+        Cliente::create($validated);
+        return redirect()->route('clientes.index')->with('success', 'Cliente creado exitosamente.');
+    }
+
+    public function editCliente(Cliente $cliente): View
+    {
+        return view('admin.clientes.edit', compact('cliente'));
+    }
+
+    public function updateCliente(Request $request, Cliente $cliente): RedirectResponse
+    {
+        $cliente->update($request->validate([
+            'nombre' => 'required|string|max:255', 'telefono' => 'required|string|max:20', 'email' => 'nullable|email|max:255',
+        ]));
+
+        return redirect()->route('clientes.index')->with('success', 'Cliente actualizado exitosamente.');
     }
 
     // --- GESTIÓN DE VESTIDOS ---
@@ -57,30 +71,50 @@ class AlquilerController extends Controller
         return view('admin.vestidos.create');
     }
 
-    public function storeVestido(Request $request): JsonResponse
+    public function storeVestido(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'codigo' => 'required|string|unique:vestidos,codigo',
             'descripcion' => 'required|string',
             'talla' => 'required|string',
             'color' => 'required|string',
-            'estado' => 'required|in:DISPONIBLE,RESERVADO,EN_ALQUILER,RETRASADO,EN_LAVANDERIA,EN_PLANCHADO',
+            'estado' => 'required|in:DISPONIBLE',
         ]);
 
-        $vestido = Vestido::create($validated);
-        return response()->json(['message' => 'Vestido agregado al inventario', 'data' => $vestido]);
+        Vestido::create($validated);
+        return redirect()->route('vestidos.index')->with('success', 'Vestido agregado al inventario.');
+    }
+
+    public function editVestido(Vestido $vestido): View
+    {
+        return view('admin.vestidos.edit', compact('vestido'));
+    }
+
+    public function updateVestido(Request $request, Vestido $vestido): RedirectResponse
+    {
+        $vestido->update($request->validate([
+            'codigo' => 'required|string|unique:vestidos,codigo,' . $vestido->id,
+            'descripcion' => 'required|string', 'talla' => 'required|string|max:50', 'color' => 'required|string|max:50',
+        ]));
+
+        return redirect()->route('vestidos.index')->with('success', 'Información del vestido actualizada.');
     }
 
     // --- CICLO DE ALQUILER ---
     public function dashboard(): View
     {
+        $this->alquilerService->marcarAlquileresRetrasados();
         $alertas = $this->alquilerService->obtenerAlertasDevolucion();
+        $alquileresActivos = Alquiler::with(['cliente', 'vestido'])
+            ->whereIn('estado_alquiler', ['RESERVADO', 'EN_ALQUILER', 'RETRASADO'])
+            ->latest()
+            ->get();
         $stats = [
             'disponibles' => Vestido::where('estado', 'DISPONIBLE')->count(),
             'alquilados' => Vestido::where('estado', 'EN_ALQUILER')->count(),
             'mantenimiento' => Vestido::whereIn('estado', ['EN_LAVANDERIA', 'EN_PLANCHADO'])->count(),
         ];
-        return view('admin.alquileres.dashboard', compact('alertas', 'stats'));
+        return view('admin.alquileres.dashboard', compact('alertas', 'alquileresActivos', 'stats'));
     }
 
     public function createReserva(): View
@@ -98,6 +132,7 @@ class AlquilerController extends Controller
             'valor_total' => 'required|numeric|min:0',
             'valor_abono' => 'required|numeric|min:0',
             'fecha_entrega_est' => 'required|date',
+            'metodo_pago' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -113,10 +148,11 @@ class AlquilerController extends Controller
         $validated = $request->validate([
             'pago_final' => 'required|numeric|min:0',
             'dias_prestamo' => 'required|integer|min:1',
+            'metodo_pago' => 'nullable|string|max:50',
         ]);
 
         try {
-            $alquiler = $this->alquilerService->despacharVestido($id, $validated['pago_final'], $validated['dias_prestamo']);
+            $alquiler = $this->alquilerService->despacharVestido($id, $validated['pago_final'], $validated['dias_prestamo'], $validated['metodo_pago'] ?? 'EFECTIVO');
             return response()->json(['message' => 'Despacho registrado exitosamente', 'data' => $alquiler]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 400);

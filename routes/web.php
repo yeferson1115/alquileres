@@ -93,29 +93,20 @@ Route::get('/clear-cache', function () {
 
 
 
-Route::prefix('admin/alquileres')->group(function () {
-    Route::get('/dashboard', [AlquilerController::class, 'dashboard'])->name('alquileres.dashboard');
-    Route::get('/alertas', [AlquilerController::class, 'alertas'])->name('alquileres.alertas');
-    Route::get('/reservar', [AlquilerController::class, 'createReserva'])->name('alquileres.reservar');
-    Route::post('/reservar', [AlquilerController::class, 'reservar'])->name('alquileres.reservar.store');
-    Route::post('/{id}/despachar', [AlquilerController::class, 'despachar'])->name('alquileres.despachar');
-    Route::post('/{id}/devolver', [AlquilerController::class, 'devolver'])->name('alquileres.devolver');
-});
-
-Route::prefix('admin/vestidos')->group(function () {
-    Route::get('/', [AlquilerController::class, 'indexVestidos'])->name('vestidos.index');
-    Route::patch('/{id}/estado', [AlquilerController::class, 'actualizarEstadoMantenimiento'])->name('vestidos.estado');
-});
 Route::prefix('admin')->group(function () {
     // Clientes
     Route::get('/clientes', [AlquilerController::class, 'indexClientes'])->name('clientes.index');
     Route::get('/clientes/create', [AlquilerController::class, 'createCliente'])->name('clientes.create');
     Route::post('/clientes', [AlquilerController::class, 'storeCliente'])->name('clientes.store');
+    Route::get('/clientes/{cliente}/edit', [AlquilerController::class, 'editCliente'])->name('clientes.edit');
+    Route::put('/clientes/{cliente}', [AlquilerController::class, 'updateCliente'])->name('clientes.update');
 
     // Vestidos
     Route::get('/vestidos', [AlquilerController::class, 'indexVestidos'])->name('vestidos.index');
     Route::get('/vestidos/create', [AlquilerController::class, 'createVestido'])->name('vestidos.create');
     Route::post('/vestidos', [AlquilerController::class, 'storeVestido'])->name('vestidos.store');
+    Route::get('/vestidos/{vestido}/edit', [AlquilerController::class, 'editVestido'])->name('vestidos.edit');
+    Route::put('/vestidos/{vestido}', [AlquilerController::class, 'updateVestido'])->name('vestidos.update');
     Route::patch('/vestidos/{id}/estado', [AlquilerController::class, 'actualizarEstadoMantenimiento'])->name('vestidos.estado');
 
     // Alquileres
