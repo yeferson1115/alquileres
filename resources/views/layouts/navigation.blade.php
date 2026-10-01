@@ -73,6 +73,12 @@
                           <div data-i18n="Inventario">Inventario de Vestidos</div>
                         </a>
                       </li>
+                      <li class="menu-item">
+                        <a href="{{ route('clientes.index') }}" class="menu-link">
+                          <i class="menu-icon fa-solid fa-users"></i>
+                          <div data-i18n="Clientes">Clientes</div>
+                        </a>
+                      </li>
                     </ul>
                   </li>
 
